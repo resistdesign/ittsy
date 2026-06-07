@@ -15,6 +15,10 @@ startup time, memory, binary size, and interaction complexity.
 - [x] Resize propagation to the PTY
 - [x] Native text input and readable monospace rendering
 - [x] Mouse text selection and clipboard copy
+- [x] Mouse and keyboard scrollback navigation
+- [x] ANSI 16-color, 256-color, and truecolor rendering
+- [x] Corner docking and optional always-on-top behavior
+- [x] Native app and bundle icons matching the project site
 - [x] Focused unit tests and release-size settings
 - [x] CI, SemVer release artifacts, and GitHub Pages deployment
 - [x] Standalone macOS `.app` release packaging
@@ -22,12 +26,9 @@ startup time, memory, binary size, and interaction complexity.
 ## Next
 
 - [ ] Remember window position and size
-- [ ] Add visible scrollback navigation
-- [ ] Add an optional always-on-top preference
 - [ ] Developer ID sign and notarize the macOS `.app`
 - [ ] Add Apple Silicon release artifacts
 - [ ] Measure cold startup, idle memory, and input latency
-- [ ] Improve terminal color and text-attribute rendering
 - [ ] Add Linux shell selection and packaging
 - [ ] Evaluate Windows ConPTY support
 
@@ -35,8 +36,8 @@ startup time, memory, binary size, and interaction complexity.
 
 - macOS and `/bin/bash` are the supported combination today.
 - Mouse-reporting terminal applications are not supported.
-- Cell colors and text attributes are currently rendered with one compact
-  theme rather than full per-cell styling.
+- Bold text uses brighter ANSI colors because the bundled monospace font has
+  one weight.
 - Complex Unicode grapheme widths may not align perfectly.
 
 ## Baseline Footprint
@@ -61,6 +62,13 @@ The 15 Hz `minifb` loop sampled keyboard state too slowly and the stretched
 native text events, keyboard-layout support, readable monospace rendering, and
 event-driven idle behavior. Correctness takes priority over the smaller broken
 binary.
+
+### 2026-06-07: Make the compact window terminal-complete
+
+Expose the existing bounded VT scrollback through wheel and keyboard input,
+render per-cell ANSI colors and attributes, and make bottom-right,
+always-on-top placement the default. Keep corner movement and floating-window
+control as keyboard shortcuts instead of adding a configuration interface.
 
 ### 2026-06-06: Keep one shell per process
 
