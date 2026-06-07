@@ -13,18 +13,18 @@ startup time, memory, binary size, and interaction complexity.
 - [x] ANSI/VT screen parsing
 - [x] Keyboard input and paste
 - [x] Resize propagation to the PTY
-- [x] Tiny bitmap-font framebuffer renderer
+- [x] Native text input and readable monospace rendering
+- [x] Mouse text selection and clipboard copy
 - [x] Focused unit tests and release-size settings
 - [x] CI, SemVer release artifacts, and GitHub Pages deployment
+- [x] Standalone macOS `.app` release packaging
 
 ## Next
 
 - [ ] Remember window position and size
 - [ ] Add visible scrollback navigation
 - [ ] Add an optional always-on-top preference
-- [ ] Add mouse text selection and clipboard copy
-- [ ] Add keyboard-layout-aware text input
-- [ ] Package as a signed macOS `.app`
+- [ ] Developer ID sign and notarize the macOS `.app`
 - [ ] Add Apple Silicon release artifacts
 - [ ] Measure cold startup, idle memory, and input latency
 - [ ] Improve terminal color and text-attribute rendering
@@ -35,33 +35,32 @@ startup time, memory, binary size, and interaction complexity.
 
 - macOS and `/bin/bash` are the supported combination today.
 - Mouse-reporting terminal applications are not supported.
-- Keyboard text input currently assumes a US layout.
-- Clipboard copy and mouse selection are not supported yet.
 - Cell colors and text attributes are currently rendered with one compact
   theme rather than full per-cell styling.
-- Characters outside the built-in bitmap font render as `?`.
+- Complex Unicode grapheme widths may not align perfectly.
 
 ## Baseline Footprint
 
-Measured on macOS 26.5.1, Intel, on 2026-06-06:
+Measured on macOS 26.5.1, Intel, on 2026-06-07:
 
-- Release executable: 457 KB
-- Idle resident memory: approximately 45 MB
-- Idle application CPU: approximately 3.2%
-- Idle bash CPU: 0%
+- Release executable: 5.5 MB
+- Zipped `.app`: 2.4 MB
+- Idle resident memory: approximately 82 MB
+- Settled idle application CPU: 0.0% in a point-in-time sample
 
-These are development-machine snapshots, not guarantees. Idle CPU is the main
-performance target: `minifb` polls native events at 15 Hz even when the terminal
-screen is unchanged.
+The broken v0.1.0 framebuffer build was smaller, but sacrificed reliable input
+and readable text. The v0.1.1 event-driven native text path is the functional
+baseline; input latency still needs a repeatable benchmark.
 
 ## Decision Log
 
-### 2026-06-06: Use minifb, portable-pty, and vt100
+### 2026-06-07: Restore eframe for correct input and text
 
-This combination provides a small native framebuffer, real PTY semantics, and
-proven terminal parsing. An earlier `eframe` prototype worked but idled around
-84 MB RSS. The framebuffer renderer is deliberately narrow and uses a built-in
-bitmap font to keep ittsy aligned with its product goal.
+The 15 Hz `minifb` loop sampled keyboard state too slowly and the stretched
+8x8 bitmap font was visibly distorted. Restore the earlier `eframe` path for
+native text events, keyboard-layout support, readable monospace rendering, and
+event-driven idle behavior. Correctness takes priority over the smaller broken
+binary.
 
 ### 2026-06-06: Keep one shell per process
 

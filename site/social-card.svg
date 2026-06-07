@@ -6,5 +6,5 @@
   <text x="90" y="395" fill="#9299a5" font-family="Arial, sans-serif" font-size="94" font-weight="700">minus the bulk.</text>
   <text x="94" y="500" fill="#9299a5" font-family="monospace" font-size="25">A tiny bash terminal for macOS. Written in Rust.</text>
   <rect x="925" y="475" width="185" height="70" fill="#c7ff4a"/>
-  <text x="956" y="521" fill="#10130a" font-family="monospace" font-size="24" font-weight="700">457 KB</text>
+  <text x="946" y="521" fill="#10130a" font-family="monospace" font-size="24" font-weight="700">macOS app</text>
 </svg>

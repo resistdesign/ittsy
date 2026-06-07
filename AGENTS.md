@@ -8,12 +8,12 @@ configuration UI unless real usage demonstrates a need.
 
 ## Current Architecture
 
-- `minifb` owns the native window and framebuffer.
-- `font8x8` provides the tiny built-in bitmap font.
+- `eframe`/`egui` owns the native window, native text input, and monospace
+  rendering.
 - `portable-pty` starts and communicates with the shell through a real PTY.
 - `vt100` maintains terminal screen state from ANSI/VT output.
-- PTY reads happen on a background thread. The main loop drains output, maps
-  keyboard input, and paints VT cells into a small pixel buffer.
+- PTY reads happen on a background thread and request UI repaints only when
+  shell output arrives.
 
 The first target is macOS and `/bin/bash`. Keep platform-specific policy in
 small functions so Linux and Windows support can follow without rewriting the

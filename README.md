@@ -8,7 +8,8 @@ screens.
 
 ## Run
 
-Requirements: a current Rust toolchain and macOS.
+Download the macOS `.app` from the latest release, unzip it, and open it
+directly. Building from source requires a current Rust toolchain and macOS:
 
 ```sh
 cargo run --release
@@ -16,12 +17,12 @@ cargo run --release
 
 Keyboard shortcuts:
 
+- `Cmd+C` copies selected terminal text.
 - `Ctrl+C` interrupts the running command.
 - `Cmd+V` pastes into the shell.
 - `Cmd+Q` quits.
 - Arrow keys, Home, End, Page Up, Page Down, Tab, Backspace, Escape, and the
-  usual `Ctrl+letter` shell controls are supported. Keyboard text input uses a
-  US layout in this first release.
+  usual `Ctrl+letter` shell controls are supported.
 
 ## Status
 
@@ -31,7 +32,7 @@ for current limitations and planned work.
 ## Releases
 
 ittsy uses Semantic Versioning. Tagged releases build and publish a
-checksummed Intel macOS archive automatically. See [RELEASE.md](RELEASE.md).
+checksummed Intel macOS `.app` automatically. See [RELEASE.md](RELEASE.md).
 
 Project site: [ittsy.resist.design](https://ittsy.resist.design)
 
