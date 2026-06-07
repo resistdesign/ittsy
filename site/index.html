@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>tinyterm - A tiny bash terminal for macOS</title>
+    <meta name="description" content="tinyterm is a tiny, fast, corner-friendly bash terminal for macOS, written in Rust. One window, one real shell, under 500 KB.">
+    <meta name="keywords" content="tiny terminal, bash terminal, macOS terminal, Rust terminal emulator, lightweight terminal">
+    <meta name="author" content="Ryan">
+    <meta name="theme-color" content="#0b0d10">
+    <link rel="canonical" href="https://tinyterm.resist.design/">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="/style.css">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="tinyterm - Your shell, minus the bulk">
+    <meta property="og:description" content="A tiny, fast, corner-friendly bash terminal for macOS. Written in Rust and under 500 KB.">
+    <meta property="og:url" content="https://tinyterm.resist.design/">
+    <meta property="og:image" content="https://tinyterm.resist.design/social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="tinyterm">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="tinyterm - Your shell, minus the bulk">
+    <meta name="twitter:description" content="A tiny bash terminal for macOS, written in Rust and under 500 KB.">
+    <meta name="twitter:image" content="https://tinyterm.resist.design/social-card.png">
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "tinyterm",
+        "url": "https://tinyterm.resist.design/",
+        "downloadUrl": "https://github.com/resistdesign/tinyterm/releases/latest",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS",
+        "softwareVersion": "0.1.0",
+        "description": "A tiny, fast, corner-friendly bash terminal for macOS.",
+        "license": "https://opensource.org/license/mit"
+      }
+    </script>
+  </head>
+  <body>
+    <header class="nav">
+      <a class="brand" href="/" aria-label="tinyterm home">
+        <span class="prompt">&gt;_</span>
+        <span>tinyterm</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#details">Details</a>
+        <a href="https://github.com/resistdesign/tinyterm">Source</a>
+        <a class="nav-download" href="https://github.com/resistdesign/tinyterm/releases/latest">Download</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Rust-powered. Bash-native. Almost nothing else.</p>
+          <h1>Your shell,<br><span>minus the bulk.</span></h1>
+          <p class="lede">tinyterm is the terminal you leave in the corner. One native window. One real bash session. No tabs, plugins, profiles, or ceremony.</p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/resistdesign/tinyterm/releases/latest">Get tinyterm</a>
+            <a class="button secondary" href="https://github.com/resistdesign/tinyterm">View source</a>
+          </div>
+          <p class="compatibility">macOS · Intel · MIT licensed</p>
+        </div>
+
+        <div class="terminal-wrap" aria-label="tinyterm terminal preview">
+          <div class="terminal">
+            <div class="titlebar">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="title">tinyterm</span>
+            </div>
+            <div class="screen">
+              <p><span class="dim">~</span> <span class="cursor-line">printf 'small is a feature.\n'</span></p>
+              <p>small is a feature.</p>
+              <p><span class="dim">~</span> <span class="block"></span></p>
+            </div>
+          </div>
+          <div class="size-chip"><strong>457</strong> KB release binary</div>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="tinyterm metrics">
+        <div><strong>&lt; 500 KB</strong><span>release executable</span></div>
+        <div><strong>1 shell</strong><span>real PTY-backed bash</span></div>
+        <div><strong>0 clutter</strong><span>tabs, panes, profiles</span></div>
+      </section>
+
+      <section class="details" id="details">
+        <div>
+          <p class="eyebrow">Deliberately narrow</p>
+          <h2>Everything needed.<br>Nothing to manage.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span>01</span>
+            <h3>A real terminal</h3>
+            <p>PTY-backed bash with ANSI and VT parsing. Run the commands and interactive tools you already use.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Actually tiny</h3>
+            <p>A framebuffer renderer and built-in bitmap font keep the executable measured in kilobytes, not megabytes.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Built to disappear</h3>
+            <p>A compact, resizable window that belongs in a screen corner and stays out of your workflow.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Open by default</h3>
+            <p>Rust source, MIT license, automated checks, reproducible releases, and no analytics on this site.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="install">
+        <p class="eyebrow">Build from source</p>
+        <div class="command"><code>cargo install --git https://github.com/resistdesign/tinyterm</code></div>
+        <a href="https://github.com/resistdesign/tinyterm/blob/main/README.md">Read the documentation →</a>
+      </section>
+    </main>
+
+    <footer>
+      <span>tinyterm · MIT · made small on purpose</span>
+      <a href="https://github.com/resistdesign/tinyterm">GitHub</a>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "tinyterm",
+  "short_name": "tinyterm",
+  "description": "A tiny, corner-friendly bash terminal for macOS.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
