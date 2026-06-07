@@ -20,6 +20,10 @@ Keyboard shortcuts:
 - `Cmd+C` copies selected terminal text.
 - `Ctrl+C` interrupts the running command.
 - `Cmd+V` pastes into the shell.
+- Mouse wheel and `Shift+Page Up` / `Shift+Page Down` navigate scrollback.
+- `Cmd+Option+Arrow` docks the window to that screen edge; combine a horizontal
+  and vertical direction to choose any corner.
+- `Cmd+Option+T` toggles whether the window stays above other windows.
 - `Cmd+Q` quits.
 - Arrow keys, Home, End, Page Up, Page Down, Tab, Backspace, Escape, and the
   usual `Ctrl+letter` shell controls are supported.

@@ -14,6 +14,7 @@ test -x "${binary}" || {
 rm -rf "${app}"
 mkdir -p "${app}/Contents/MacOS" "${app}/Contents/Resources"
 cp "${binary}" "${app}/Contents/MacOS/ittsy"
+cp assets/ittsy.icns "${app}/Contents/Resources/ittsy.icns"
 
 cat > "${app}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -28,6 +29,8 @@ cat > "${app}/Contents/Info.plist" <<PLIST
   <string>ittsy</string>
   <key>CFBundleIdentifier</key>
   <string>design.resist.ittsy</string>
+  <key>CFBundleIconFile</key>
+  <string>ittsy</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>

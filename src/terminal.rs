@@ -1,4 +1,7 @@
-use eframe::egui::{self, Event, Key, Modifiers};
+use eframe::egui::{
+    self, Color32, Event, FontId, Key, Modifiers, MouseWheelUnit, Stroke, TextFormat,
+    text::LayoutJob,
+};
 use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::sync::mpsc::{self, Receiver};
@@ -79,16 +82,37 @@ impl Terminal {
         }
     }
 
-    pub fn contents(&self) -> String {
-        render_screen(self.parser.screen())
+    pub fn contents(&self, font_id: FontId) -> LayoutJob {
+        render_screen(self.parser.screen(), font_id)
     }
 
-    pub fn handle_input(&mut self, ctx: &egui::Context) {
+    pub fn handle_input(&mut self, ctx: &egui::Context, row_height: f32) {
         let events = ctx.input(|input| input.events.clone());
         for event in events {
-            if let Event::Paste(text) = &event {
+            if let Event::MouseWheel { unit, delta, .. } = event {
+                let rows = scroll_rows(unit, delta.y, row_height, self.rows);
+                self.scroll(rows);
+            } else if let Event::Key {
+                key: Key::PageUp,
+                pressed: true,
+                modifiers: Modifiers { shift: true, .. },
+                ..
+            } = event
+            {
+                self.scroll(self.rows.saturating_sub(1) as isize);
+            } else if let Event::Key {
+                key: Key::PageDown,
+                pressed: true,
+                modifiers: Modifiers { shift: true, .. },
+                ..
+            } = event
+            {
+                self.scroll(-(self.rows.saturating_sub(1) as isize));
+            } else if let Event::Paste(text) = &event {
+                self.scroll_to_bottom();
                 self.paste(text);
             } else if let Some(bytes) = encode_event(&event) {
+                self.scroll_to_bottom();
                 self.write(&bytes);
             }
         }
@@ -136,9 +160,19 @@ impl Terminal {
             self.write(text.as_bytes());
         }
     }
+
+    fn scroll(&mut self, rows: isize) {
+        let current = self.parser.screen().scrollback();
+        let next = current.saturating_add_signed(rows);
+        self.parser.screen_mut().set_scrollback(next);
+    }
+
+    fn scroll_to_bottom(&mut self) {
+        self.parser.screen_mut().set_scrollback(0);
+    }
 }
 
-fn render_screen(screen: &vt100::Screen) -> String {
+fn render_screen(screen: &vt100::Screen, font_id: FontId) -> LayoutJob {
     let (rows, cols) = screen.size();
     let (cursor_row, cursor_col) = screen.cursor_position();
     let cursor_visible = !screen.hide_cursor() && screen.scrollback() == 0;
@@ -150,7 +184,8 @@ fn render_screen(screen: &vt100::Screen) -> String {
         }
     }
 
-    let mut output = String::new();
+    let mut output = LayoutJob::default();
+    output.wrap.max_width = f32::INFINITY;
     for row in 0..=last_row {
         let mut last_col = if cursor_visible && row == cursor_row {
             cursor_col
@@ -158,30 +193,141 @@ fn render_screen(screen: &vt100::Screen) -> String {
             0
         };
         for col in 0..cols {
-            if screen.cell(row, col).is_some_and(vt100::Cell::has_contents) {
+            if screen.cell(row, col).is_some_and(cell_is_visible) {
                 last_col = last_col.max(col);
             }
         }
 
         for col in 0..=last_col {
             if cursor_visible && row == cursor_row && col == cursor_col {
-                output.push('█');
+                output.append(
+                    " ",
+                    0.0,
+                    TextFormat {
+                        background: DEFAULT_FOREGROUND,
+                        ..terminal_text_format(font_id.clone(), None)
+                    },
+                );
             } else if let Some(cell) = screen.cell(row, col)
                 && !cell.is_wide_continuation()
             {
-                if cell.has_contents() {
-                    output.push_str(cell.contents());
+                let contents = if cell.has_contents() {
+                    cell.contents()
                 } else {
-                    output.push(' ');
-                }
+                    " "
+                };
+                output.append(
+                    contents,
+                    0.0,
+                    terminal_text_format(font_id.clone(), Some(cell)),
+                );
             }
         }
 
         if row < last_row {
-            output.push('\n');
+            output.append("\n", 0.0, terminal_text_format(font_id.clone(), None));
         }
     }
     output
+}
+
+const DEFAULT_FOREGROUND: Color32 = Color32::from_rgb(220, 224, 230);
+const DEFAULT_BACKGROUND: Color32 = Color32::from_rgb(15, 17, 21);
+
+fn cell_is_visible(cell: &vt100::Cell) -> bool {
+    cell.has_contents() || cell.bgcolor() != vt100::Color::Default
+}
+
+fn terminal_text_format(font_id: FontId, cell: Option<&vt100::Cell>) -> TextFormat {
+    let Some(cell) = cell else {
+        return TextFormat {
+            font_id,
+            color: DEFAULT_FOREGROUND,
+            ..Default::default()
+        };
+    };
+
+    let mut foreground = terminal_color(cell.fgcolor(), DEFAULT_FOREGROUND, cell.bold());
+    let mut background = terminal_color(cell.bgcolor(), DEFAULT_BACKGROUND, false);
+    if cell.inverse() {
+        std::mem::swap(&mut foreground, &mut background);
+    }
+    if cell.dim() {
+        foreground = foreground.gamma_multiply(0.65);
+    }
+
+    TextFormat {
+        font_id,
+        color: foreground,
+        background: if cell.bgcolor() == vt100::Color::Default && !cell.inverse() {
+            Color32::TRANSPARENT
+        } else {
+            background
+        },
+        italics: cell.italic(),
+        underline: if cell.underline() {
+            Stroke::new(1.0, foreground)
+        } else {
+            Stroke::NONE
+        },
+        ..Default::default()
+    }
+}
+
+fn terminal_color(color: vt100::Color, default: Color32, bold: bool) -> Color32 {
+    match color {
+        vt100::Color::Default => default,
+        vt100::Color::Rgb(red, green, blue) => Color32::from_rgb(red, green, blue),
+        vt100::Color::Idx(index) => {
+            indexed_color(if bold && index < 8 { index + 8 } else { index })
+        }
+    }
+}
+
+fn indexed_color(index: u8) -> Color32 {
+    const ANSI: [(u8, u8, u8); 16] = [
+        (0, 0, 0),
+        (205, 49, 49),
+        (13, 188, 121),
+        (229, 229, 16),
+        (36, 114, 200),
+        (188, 63, 188),
+        (17, 168, 205),
+        (229, 229, 229),
+        (102, 102, 102),
+        (241, 76, 76),
+        (35, 209, 139),
+        (245, 245, 67),
+        (59, 142, 234),
+        (214, 112, 214),
+        (41, 184, 219),
+        (255, 255, 255),
+    ];
+
+    if let Some(&(red, green, blue)) = ANSI.get(index as usize) {
+        return Color32::from_rgb(red, green, blue);
+    }
+    if index < 232 {
+        const LEVELS: [u8; 6] = [0, 95, 135, 175, 215, 255];
+        let cube = index - 16;
+        return Color32::from_rgb(
+            LEVELS[(cube / 36) as usize],
+            LEVELS[((cube % 36) / 6) as usize],
+            LEVELS[(cube % 6) as usize],
+        );
+    }
+
+    let gray = 8 + (index - 232) * 10;
+    Color32::from_gray(gray)
+}
+
+fn scroll_rows(unit: MouseWheelUnit, delta: f32, row_height: f32, rows: u16) -> isize {
+    let amount = match unit {
+        MouseWheelUnit::Point => delta / row_height.max(1.0),
+        MouseWheelUnit::Line => delta,
+        MouseWheelUnit::Page => delta * rows as f32,
+    };
+    amount.round() as isize
 }
 
 fn grid_size(width: f32, height: f32, col_width: f32, row_height: f32) -> (u16, u16) {
@@ -304,6 +450,30 @@ mod tests {
             ),
             (false, 0, (0, 2))
         );
-        assert_eq!(render_screen(parser.screen()), "hi█");
+        assert_eq!(
+            render_screen(parser.screen(), FontId::monospace(13.0)).text,
+            "hi "
+        );
+    }
+
+    #[test]
+    fn maps_ansi_and_truecolor_cells() {
+        let mut parser = vt100::Parser::new(2, 10, 0);
+        parser.process(b"\x1b[31mR\x1b[38;2;1;2;3mT");
+        let output = render_screen(parser.screen(), FontId::monospace(13.0));
+
+        assert_eq!(output.text, "RT ");
+        assert_eq!(
+            output.sections[0].format.color,
+            Color32::from_rgb(205, 49, 49)
+        );
+        assert_eq!(output.sections[1].format.color, Color32::from_rgb(1, 2, 3));
+    }
+
+    #[test]
+    fn converts_wheel_units_to_scrollback_rows() {
+        assert_eq!(scroll_rows(MouseWheelUnit::Line, 3.0, 15.0, 24), 3);
+        assert_eq!(scroll_rows(MouseWheelUnit::Point, -30.0, 15.0, 24), -2);
+        assert_eq!(scroll_rows(MouseWheelUnit::Page, 1.0, 15.0, 24), 24);
     }
 }
