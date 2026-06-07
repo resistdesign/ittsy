@@ -1,4 +1,5 @@
-use eframe::egui::{self, Event, Key, Modifiers};
+use eframe::egui::{self, Event, Key, Modifiers, MouseWheelUnit};
+use eframe::epaint::text::{LayoutJob, TextFormat};
 use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::sync::mpsc::{self, Receiver};
@@ -7,6 +8,9 @@ use std::thread;
 const INITIAL_ROWS: u16 = 24;
 const INITIAL_COLS: u16 = 80;
 const SCROLLBACK_ROWS: usize = 2_000;
+const DEFAULT_FG: egui::Color32 = egui::Color32::from_rgb(220, 224, 230);
+const DEFAULT_BG: egui::Color32 = egui::Color32::TRANSPARENT;
+const TERMINAL_BG: egui::Color32 = egui::Color32::from_rgb(15, 17, 21);
 
 pub struct Terminal {
     parser: vt100::Parser,
@@ -15,6 +19,7 @@ pub struct Terminal {
     output: Receiver<Vec<u8>>,
     rows: u16,
     cols: u16,
+    scroll_fractional_rows: f32,
 }
 
 impl Terminal {
@@ -70,23 +75,33 @@ impl Terminal {
             output,
             rows: INITIAL_ROWS,
             cols: INITIAL_COLS,
+            scroll_fractional_rows: 0.0,
         })
     }
 
     pub fn process_output(&mut self) {
+        let was_following_output = self.parser.screen().scrollback() == 0;
+        let mut received_output = false;
         while let Ok(bytes) = self.output.try_recv() {
             self.parser.process(&bytes);
+            received_output = true;
+        }
+
+        if received_output && was_following_output {
+            self.parser.screen_mut().set_scrollback(0);
         }
     }
 
-    pub fn contents(&self) -> String {
-        render_screen(self.parser.screen())
+    pub fn contents(&self, ui: &egui::Ui) -> LayoutJob {
+        render_screen(self.parser.screen(), ui)
     }
 
-    pub fn handle_input(&mut self, ctx: &egui::Context) {
+    pub fn handle_input(&mut self, ctx: &egui::Context, row_height: f32) {
         let events = ctx.input(|input| input.events.clone());
         for event in events {
-            if let Event::Paste(text) = &event {
+            if self.handle_scroll(&event, row_height) {
+                ctx.request_repaint();
+            } else if let Event::Paste(text) = &event {
                 self.paste(text);
             } else if let Some(bytes) = encode_event(&event) {
                 self.write(&bytes);
@@ -94,16 +109,17 @@ impl Terminal {
         }
     }
 
-    pub fn resize_for_points(&mut self, available: egui::Vec2, ui: &egui::Ui) {
-        let font_id = egui::TextStyle::Monospace.resolve(ui.style());
-        let row_height = ui.fonts_mut(|fonts| fonts.row_height(&font_id)).max(1.0);
-        let col_width = ui
-            .fonts_mut(|fonts| fonts.glyph_width(&font_id, 'W'))
-            .max(1.0);
-        let (rows, cols) = grid_size(available.x, available.y, col_width, row_height);
+    pub fn resize_for_points(&mut self, available: egui::Vec2, ui: &egui::Ui) -> CellMetrics {
+        let metrics = cell_metrics(ui);
+        let (rows, cols) = grid_size(
+            available.x,
+            available.y,
+            metrics.col_width,
+            metrics.row_height,
+        );
 
         if rows == self.rows && cols == self.cols {
-            return;
+            return metrics;
         }
 
         if self
@@ -120,9 +136,51 @@ impl Terminal {
             self.rows = rows;
             self.cols = cols;
         }
+
+        metrics
+    }
+
+    fn handle_scroll(&mut self, event: &Event, row_height: f32) -> bool {
+        let Event::MouseWheel {
+            unit,
+            delta,
+            modifiers,
+            ..
+        } = event
+        else {
+            return false;
+        };
+
+        if modifiers.ctrl || delta.y == 0.0 {
+            return false;
+        }
+
+        let row_delta = match unit {
+            MouseWheelUnit::Point => delta.y / row_height.max(1.0),
+            MouseWheelUnit::Line => delta.y,
+            MouseWheelUnit::Page => delta.y * f32::from(self.rows),
+        };
+        self.scroll_fractional_rows += row_delta;
+        let whole_rows = self.scroll_fractional_rows.trunc() as isize;
+        self.scroll_fractional_rows = self.scroll_fractional_rows.fract();
+
+        if whole_rows == 0 {
+            return false;
+        }
+
+        let current = self.parser.screen().scrollback();
+        let requested = if whole_rows.is_positive() {
+            current.saturating_add(whole_rows as usize)
+        } else {
+            current.saturating_sub(whole_rows.unsigned_abs())
+        };
+        self.parser.screen_mut().set_scrollback(requested);
+        self.parser.screen().scrollback() != current
     }
 
     fn write(&mut self, bytes: &[u8]) {
+        self.parser.screen_mut().set_scrollback(0);
+        self.scroll_fractional_rows = 0.0;
         let _ = self.writer.write_all(bytes);
         let _ = self.writer.flush();
     }
@@ -138,7 +196,25 @@ impl Terminal {
     }
 }
 
-fn render_screen(screen: &vt100::Screen) -> String {
+#[derive(Clone, Copy)]
+pub struct CellMetrics {
+    pub row_height: f32,
+    col_width: f32,
+}
+
+fn cell_metrics(ui: &egui::Ui) -> CellMetrics {
+    let font_id = egui::TextStyle::Monospace.resolve(ui.style());
+    let row_height = ui.fonts_mut(|fonts| fonts.row_height(&font_id)).max(1.0);
+    let col_width = ui
+        .fonts_mut(|fonts| fonts.glyph_width(&font_id, 'W'))
+        .max(1.0);
+    CellMetrics {
+        row_height,
+        col_width,
+    }
+}
+
+fn render_screen(screen: &vt100::Screen, ui: &egui::Ui) -> LayoutJob {
     let (rows, cols) = screen.size();
     let (cursor_row, cursor_col) = screen.cursor_position();
     let cursor_visible = !screen.hide_cursor() && screen.scrollback() == 0;
@@ -150,7 +226,10 @@ fn render_screen(screen: &vt100::Screen) -> String {
         }
     }
 
-    let mut output = String::new();
+    let font_id = egui::TextStyle::Monospace.resolve(ui.style());
+    let mut job = LayoutJob::default();
+    job.wrap.max_width = f32::INFINITY;
+
     for row in 0..=last_row {
         let mut last_col = if cursor_visible && row == cursor_row {
             cursor_col
@@ -165,23 +244,134 @@ fn render_screen(screen: &vt100::Screen) -> String {
 
         for col in 0..=last_col {
             if cursor_visible && row == cursor_row && col == cursor_col {
-                output.push('█');
+                append_text(&mut job, "█", cursor_format(font_id.clone()));
             } else if let Some(cell) = screen.cell(row, col)
                 && !cell.is_wide_continuation()
             {
-                if cell.has_contents() {
-                    output.push_str(cell.contents());
+                let contents = if cell.has_contents() {
+                    cell.contents()
                 } else {
-                    output.push(' ');
-                }
+                    " "
+                };
+                append_text(&mut job, contents, cell_format(cell, font_id.clone()));
             }
         }
 
         if row < last_row {
-            output.push('\n');
+            append_text(&mut job, "\n", default_format(font_id.clone()));
         }
     }
-    output
+    job
+}
+
+fn append_text(job: &mut LayoutJob, text: &str, format: TextFormat) {
+    job.append(text, 0.0, format);
+}
+
+fn default_format(font_id: egui::FontId) -> TextFormat {
+    TextFormat {
+        font_id,
+        color: DEFAULT_FG,
+        ..Default::default()
+    }
+}
+
+fn cursor_format(font_id: egui::FontId) -> TextFormat {
+    TextFormat {
+        font_id,
+        color: TERMINAL_BG,
+        background: DEFAULT_FG,
+        ..Default::default()
+    }
+}
+
+fn cell_format(cell: &vt100::Cell, font_id: egui::FontId) -> TextFormat {
+    let mut foreground = terminal_color(cell.fgcolor(), DEFAULT_FG);
+    let mut background = terminal_color(cell.bgcolor(), DEFAULT_BG);
+
+    if cell.bold() && matches!(cell.fgcolor(), vt100::Color::Idx(0..=7)) {
+        foreground = terminal_color(
+            vt100::Color::Idx(match cell.fgcolor() {
+                vt100::Color::Idx(index) => index + 8,
+                _ => unreachable!(),
+            }),
+            DEFAULT_FG,
+        );
+    }
+
+    if cell.dim() {
+        foreground = foreground.gamma_multiply(0.65);
+    }
+
+    if cell.inverse() {
+        if background == DEFAULT_BG {
+            background = foreground;
+            foreground = TERMINAL_BG;
+        } else {
+            std::mem::swap(&mut foreground, &mut background);
+        }
+    }
+
+    TextFormat {
+        font_id,
+        color: foreground,
+        background,
+        italics: cell.italic(),
+        underline: if cell.underline() {
+            egui::Stroke::new(1.0, foreground)
+        } else {
+            egui::Stroke::NONE
+        },
+        ..Default::default()
+    }
+}
+
+fn terminal_color(color: vt100::Color, default: egui::Color32) -> egui::Color32 {
+    match color {
+        vt100::Color::Default => default,
+        vt100::Color::Rgb(red, green, blue) => egui::Color32::from_rgb(red, green, blue),
+        vt100::Color::Idx(index) => indexed_color(index),
+    }
+}
+
+fn indexed_color(index: u8) -> egui::Color32 {
+    const ANSI_16: [(u8, u8, u8); 16] = [
+        (0, 0, 0),
+        (205, 49, 49),
+        (13, 188, 121),
+        (229, 229, 16),
+        (36, 114, 200),
+        (188, 63, 188),
+        (17, 168, 205),
+        (229, 229, 229),
+        (102, 102, 102),
+        (241, 76, 76),
+        (35, 209, 139),
+        (245, 245, 67),
+        (59, 142, 234),
+        (214, 112, 214),
+        (41, 184, 219),
+        (255, 255, 255),
+    ];
+
+    if let Some(&(red, green, blue)) = ANSI_16.get(usize::from(index)) {
+        return egui::Color32::from_rgb(red, green, blue);
+    }
+
+    if (16..=231).contains(&index) {
+        let cube = index - 16;
+        let red = cube / 36;
+        let green = (cube % 36) / 6;
+        let blue = cube % 6;
+        return egui::Color32::from_rgb(color_cube(red), color_cube(green), color_cube(blue));
+    }
+
+    let gray = 8 + (index.saturating_sub(232) * 10);
+    egui::Color32::from_rgb(gray, gray, gray)
+}
+
+fn color_cube(value: u8) -> u8 {
+    if value == 0 { 0 } else { 55 + value * 40 }
 }
 
 fn grid_size(width: f32, height: f32, col_width: f32, row_height: f32) -> (u16, u16) {
@@ -278,6 +468,14 @@ mod tests {
     }
 
     #[test]
+    fn maps_indexed_color_cube_and_grayscale() {
+        assert_eq!(indexed_color(9), egui::Color32::from_rgb(241, 76, 76));
+        assert_eq!(indexed_color(16), egui::Color32::from_rgb(0, 0, 0));
+        assert_eq!(indexed_color(231), egui::Color32::from_rgb(255, 255, 255));
+        assert_eq!(indexed_color(232), egui::Color32::from_rgb(8, 8, 8));
+    }
+
+    #[test]
     fn encodes_navigation_and_control_keys() {
         assert_eq!(
             encode_key(Key::ArrowUp, Modifiers::NONE),
@@ -293,17 +491,11 @@ mod tests {
     }
 
     #[test]
-    fn renders_cursor_after_terminal_contents() {
-        let mut parser = vt100::Parser::new(2, 10, 0);
-        parser.process(b"\x1b[?25hhi");
-        assert_eq!(
-            (
-                parser.screen().hide_cursor(),
-                parser.screen().scrollback(),
-                parser.screen().cursor_position()
-            ),
-            (false, 0, (0, 2))
-        );
-        assert_eq!(render_screen(parser.screen()), "hi█");
+    fn terminal_keeps_scrollback_available() {
+        let mut parser = vt100::Parser::new(2, 10, 10);
+        parser.process(b"one\ntwo\nthree");
+        parser.screen_mut().set_scrollback(1);
+        assert_eq!(parser.screen().scrollback(), 1);
+        assert!(parser.screen().rows(0, 10).any(|row| row.contains("one")));
     }
 }

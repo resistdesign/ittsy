@@ -22,12 +22,13 @@ startup time, memory, binary size, and interaction complexity.
 ## Next
 
 - [ ] Remember window position and size
-- [ ] Add visible scrollback navigation
-- [ ] Add an optional always-on-top preference
+- [x] Add visible scrollback navigation
+- [x] Add corner docking controls
+- [x] Add an optional always-on-top preference
 - [ ] Developer ID sign and notarize the macOS `.app`
 - [ ] Add Apple Silicon release artifacts
 - [ ] Measure cold startup, idle memory, and input latency
-- [ ] Improve terminal color and text-attribute rendering
+- [x] Improve terminal color and text-attribute rendering
 - [ ] Add Linux shell selection and packaging
 - [ ] Evaluate Windows ConPTY support
 
@@ -35,8 +36,6 @@ startup time, memory, binary size, and interaction complexity.
 
 - macOS and `/bin/bash` are the supported combination today.
 - Mouse-reporting terminal applications are not supported.
-- Cell colors and text attributes are currently rendered with one compact
-  theme rather than full per-cell styling.
 - Complex Unicode grapheme widths may not align perfectly.
 
 ## Baseline Footprint
