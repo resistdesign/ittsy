@@ -9,8 +9,8 @@ ittsy follows [Semantic Versioning](https://semver.org/). The version in
 4. Create and push an annotated tag:
 
    ```sh
-   git tag -a v0.2.0 -m "ittsy v0.2.0"
-   git push origin v0.2.0
+   git tag -a v0.3.0 -m "ittsy v0.3.0"
+   git push origin v0.3.0
    ```
 
 The release workflow verifies the version, runs tests, builds optimized Intel
