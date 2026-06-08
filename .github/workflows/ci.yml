@@ -8,11 +8,8 @@ permissions:
   contents: read
 
 jobs:
-  macos:
-    strategy:
-      matrix:
-        runner: [macos-latest, macos-15-intel]
-    runs-on: ${{ matrix.runner }}
+  check:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@master
@@ -20,8 +17,18 @@ jobs:
           toolchain: 1.94.0
           components: clippy,rustfmt
       - uses: Swatinem/rust-cache@v2
-      - if: matrix.runner == 'macos-latest'
-        run: cargo fmt --check
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.94.0
+      - uses: Swatinem/rust-cache@v2
       - run: cargo test
-      - if: matrix.runner == 'macos-latest'
-        run: cargo clippy --all-targets -- -D warnings

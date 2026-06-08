@@ -9,7 +9,7 @@ startup time, memory, binary size, and interaction complexity.
 ## v0.1 - Usable Core
 
 - [x] Native compact window
-- [x] Real PTY-backed `/bin/bash` session
+- [x] Real PTY-backed shell session
 - [x] ANSI/VT screen parsing
 - [x] Keyboard input and paste
 - [x] Resize propagation to the PTY
@@ -22,19 +22,22 @@ startup time, memory, binary size, and interaction complexity.
 - [x] Focused unit tests and release-size settings
 - [x] CI, SemVer release artifacts, and GitHub Pages deployment
 - [x] Standalone macOS `.app` release packaging
+- [x] Linux and Windows shell support and release artifacts
 
 ## Next
 
 - [ ] Remember window position and size
 - [ ] Developer ID sign and notarize the macOS `.app`
-- [ ] Add Apple Silicon release artifacts
+- [x] Add Apple Silicon release artifacts
 - [ ] Measure cold startup, idle memory, and input latency
-- [ ] Add Linux shell selection and packaging
-- [ ] Evaluate Windows ConPTY support
+- [ ] Smoke-test native Linux behavior and evaluate Wayland support
+- [ ] Add native Linux desktop packaging
+- [ ] Add a signed Windows installer
 
 ## Known Limitations
 
-- macOS and `/bin/bash` are the supported combination today.
+- macOS uses the user's login shell, Linux uses `$SHELL` with a standard shell
+  fallback, and Windows uses PowerShell through ConPTY.
 - Mouse-reporting terminal applications are not supported.
 - Bold text uses brighter ANSI colors because the bundled monospace font has
   one weight.
@@ -54,6 +57,13 @@ and readable text. The v0.1.1 event-driven native text path is the functional
 baseline; input latency still needs a repeatable benchmark.
 
 ## Decision Log
+
+### 2026-06-08: Ship native builds for macOS, Linux, and Windows
+
+Keep one PTY-backed terminal core and isolate platform policy to shell launch
+and shortcut handling. Publish zipped macOS and Windows builds and a compressed
+Linux binary; defer installers and distribution-specific packages until usage
+justifies their maintenance.
 
 ### 2026-06-07: Restore eframe for correct input and text
 

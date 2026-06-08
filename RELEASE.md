@@ -13,9 +13,10 @@ ittsy follows [Semantic Versioning](https://semver.org/). The version in
    git push origin v0.2.0
    ```
 
-The release workflow verifies the version, runs tests, builds the optimized
-Intel macOS binary, packages and ad-hoc signs a standalone `.app`, writes a
-SHA-256 checksum, and creates a GitHub release with generated notes.
+The release workflow verifies the version, runs tests, builds optimized Intel
+and Apple Silicon macOS, x86-64 Linux, and x86-64 Windows binaries, writes
+SHA-256 checksums, and creates one GitHub release with all archives. macOS
+artifacts are packaged and ad-hoc signed as standalone `.app` bundles.
 
 For local bundle verification:
 
