@@ -371,7 +371,7 @@ fn encode_key(key: Key, modifiers: Modifiers) -> Option<Vec<u8>> {
         return None;
     }
 
-    if modifiers.ctrl
+    if (modifiers.ctrl || (!cfg!(target_os = "macos") && modifiers.command))
         && let Some(byte) = control_byte(key)
     {
         return Some(vec![byte]);
