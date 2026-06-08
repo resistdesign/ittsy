@@ -3,6 +3,7 @@ use eframe::egui::{
     text::LayoutJob,
 };
 use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
+use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
@@ -32,8 +33,11 @@ impl Terminal {
             })
             .map_err(|error| error.to_string())?;
 
-        let mut command = CommandBuilder::new("/bin/bash");
-        command.arg("--login");
+        let shell = shell_command();
+        let mut command = CommandBuilder::new(shell.program);
+        for arg in shell.args {
+            command.arg(arg);
+        }
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
         command.env("TERM_PROGRAM", "ittsy");
@@ -87,9 +91,14 @@ impl Terminal {
     }
 
     pub fn handle_input(&mut self, ctx: &egui::Context, row_height: f32) {
-        let events = ctx.input(|input| input.events.clone());
+        let (events, modifiers) = ctx.input(|input| (input.events.clone(), input.modifiers));
+        let mut consumed_clipboard_control = false;
         for event in events {
-            if let Event::MouseWheel { unit, delta, .. } = event {
+            if let Some(byte) = clipboard_control_byte(&event, modifiers) {
+                self.scroll_to_bottom();
+                self.write(&[byte]);
+                consumed_clipboard_control = true;
+            } else if let Event::MouseWheel { unit, delta, .. } = event {
                 let rows = scroll_rows(unit, delta.y, row_height, self.rows);
                 self.scroll(rows);
             } else if let Event::Key {
@@ -115,6 +124,14 @@ impl Terminal {
                 self.scroll_to_bottom();
                 self.write(&bytes);
             }
+        }
+
+        if consumed_clipboard_control {
+            ctx.input_mut(|input| {
+                input
+                    .events
+                    .retain(|event| clipboard_control_byte(event, modifiers).is_none());
+            });
         }
     }
 
@@ -350,11 +367,11 @@ fn encode_event(event: &Event) -> Option<Vec<u8>> {
 }
 
 fn encode_key(key: Key, modifiers: Modifiers) -> Option<Vec<u8>> {
-    if modifiers.command {
+    if is_application_shortcut(modifiers) {
         return None;
     }
 
-    if modifiers.ctrl
+    if (modifiers.ctrl || (!cfg!(target_os = "macos") && modifiers.command))
         && let Some(byte) = control_byte(key)
     {
         return Some(vec![byte]);
@@ -378,6 +395,25 @@ fn encode_key(key: Key, modifiers: Modifiers) -> Option<Vec<u8>> {
         _ => return None,
     };
     Some(sequence.as_bytes().to_vec())
+}
+
+#[cfg(target_os = "macos")]
+fn clipboard_control_byte(_event: &Event, _modifiers: Modifiers) -> Option<u8> {
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
+fn clipboard_control_byte(event: &Event, modifiers: Modifiers) -> Option<u8> {
+    if modifiers.shift {
+        return None;
+    }
+
+    match event {
+        Event::Copy => Some(3),
+        Event::Paste(_) => Some(22),
+        Event::Cut => Some(24),
+        _ => None,
+    }
 }
 
 fn control_byte(key: Key) -> Option<u8> {
@@ -413,6 +449,47 @@ fn control_byte(key: Key) -> Option<u8> {
     Some(letter & 0x1f)
 }
 
+struct ShellCommand {
+    program: OsString,
+    args: Vec<OsString>,
+}
+
+#[cfg(unix)]
+fn shell_command() -> ShellCommand {
+    let program = std::env::var_os("SHELL")
+        .filter(|shell| !shell.is_empty())
+        .unwrap_or_else(|| {
+            if std::path::Path::new("/bin/bash").is_file() {
+                OsString::from("/bin/bash")
+            } else {
+                OsString::from("/bin/sh")
+            }
+        });
+
+    ShellCommand {
+        program,
+        args: vec![OsString::from("-l")],
+    }
+}
+
+#[cfg(windows)]
+fn shell_command() -> ShellCommand {
+    ShellCommand {
+        program: OsString::from("powershell.exe"),
+        args: vec![OsString::from("-NoLogo")],
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn is_application_shortcut(modifiers: Modifiers) -> bool {
+    modifiers.command
+}
+
+#[cfg(not(target_os = "macos"))]
+fn is_application_shortcut(_modifiers: Modifiers) -> bool {
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -433,9 +510,25 @@ mod tests {
     }
 
     #[test]
-    fn leaves_command_shortcuts_to_macos() {
+    #[cfg(target_os = "macos")]
+    fn leaves_command_shortcuts_to_the_application_on_macos() {
         assert_eq!(encode_key(Key::C, Modifiers::COMMAND), None);
         assert_eq!(encode_key(Key::V, Modifiers::COMMAND), None);
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn preserves_control_keys_off_macos() {
+        assert_eq!(encode_key(Key::C, Modifiers::COMMAND), Some(vec![3]));
+        assert_eq!(encode_key(Key::V, Modifiers::COMMAND), Some(vec![22]));
+        assert_eq!(
+            clipboard_control_byte(&Event::Copy, Modifiers::CTRL),
+            Some(3)
+        );
+        assert_eq!(
+            clipboard_control_byte(&Event::Copy, Modifiers::CTRL | Modifiers::SHIFT),
+            None
+        );
     }
 
     #[test]

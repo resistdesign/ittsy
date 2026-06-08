@@ -131,7 +131,7 @@ impl eframe::App for Ittsy {
                 Err(error) => {
                     ui.colored_label(
                         egui::Color32::from_rgb(255, 110, 110),
-                        format!("ittsy could not start bash:\n\n{error}"),
+                        format!("ittsy could not start the shell:\n\n{error}"),
                     );
                 }
             });

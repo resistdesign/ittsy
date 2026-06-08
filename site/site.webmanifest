@@ -1,7 +1,7 @@
 {
   "name": "ittsy",
   "short_name": "ittsy",
-  "description": "A tiny, corner-friendly bash terminal for macOS.",
+  "description": "A tiny, corner-friendly terminal for macOS, Linux, and Windows.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0d10",
