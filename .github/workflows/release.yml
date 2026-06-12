@@ -50,6 +50,16 @@ jobs:
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }}
 
+      - name: Verify Windows GUI subsystem
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $binary = "target/${{ matrix.target }}/release/ittsy.exe"
+          $headers = & dumpbin /headers $binary
+          if ($headers -notmatch "Windows GUI") {
+            throw "$binary is not linked as a standalone Windows GUI application"
+          }
+
       - name: Package macOS
         if: matrix.platform == 'macos'
         shell: bash

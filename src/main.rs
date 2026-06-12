@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 mod terminal;
 
 use eframe::egui;
@@ -18,6 +20,7 @@ fn main() -> eframe::Result {
             .with_min_inner_size([320.0, 180.0])
             .with_resizable(true)
             .with_icon(icon)
+            .with_active(true)
             .with_always_on_top(),
         renderer: eframe::Renderer::Glow,
         ..Default::default()

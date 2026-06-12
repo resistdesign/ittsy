@@ -58,6 +58,12 @@ baseline; input latency still needs a repeatable benchmark.
 
 ## Decision Log
 
+### 2026-06-12: Launch Windows without a companion console
+
+Link the Windows build as a GUI application and activate the terminal window at
+startup. PowerShell remains attached through ConPTY; no separate command window
+should own focus or control the lifetime of ittsy.
+
 ### 2026-06-08: Ship native builds for macOS, Linux, and Windows
 
 Keep one PTY-backed terminal core and isolate platform policy to shell launch
