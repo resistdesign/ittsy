@@ -1,11 +1,11 @@
 (() => {
-  const releaseBase = "https://github.com/resistdesign/ittsy/releases/download/v0.3.0";
+  const releaseBase = "https://github.com/resistdesign/ittsy/releases/download/v0.3.1";
   const releasesUrl = "https://github.com/resistdesign/ittsy/releases/latest";
   const downloads = {
-    macArm: `${releaseBase}/ittsy-v0.3.0-aarch64-apple-darwin.zip`,
-    macIntel: `${releaseBase}/ittsy-v0.3.0-x86_64-apple-darwin.zip`,
-    windows: `${releaseBase}/ittsy-v0.3.0-x86_64-pc-windows-msvc.zip`,
-    linux: `${releaseBase}/ittsy-v0.3.0-x86_64-unknown-linux-gnu.tar.gz`,
+    macArm: `${releaseBase}/ittsy-v0.3.1-aarch64-apple-darwin.zip`,
+    macIntel: `${releaseBase}/ittsy-v0.3.1-x86_64-apple-darwin.zip`,
+    windows: `${releaseBase}/ittsy-v0.3.1-x86_64-pc-windows-msvc.zip`,
+    linux: `${releaseBase}/ittsy-v0.3.1-x86_64-unknown-linux-gnu.tar.gz`,
   };
 
   const platformName = document.querySelector("#download-platform");
