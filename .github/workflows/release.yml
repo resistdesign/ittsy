@@ -4,9 +4,18 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing unpublished release tag to rebuild
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
   build:
@@ -28,6 +37,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.94.0
@@ -39,8 +50,8 @@ jobs:
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
-          test "v${version}" = "${GITHUB_REF_NAME}" || {
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${version}"
+          test "v${version}" = "${RELEASE_TAG}" || {
+            echo "::error::Tag ${RELEASE_TAG} does not match Cargo.toml version ${version}"
             exit 1
           }
 
@@ -55,8 +66,10 @@ jobs:
         shell: pwsh
         run: |
           $binary = "target/${{ matrix.target }}/release/ittsy.exe"
-          $headers = & dumpbin /headers $binary
-          if ($headers -notmatch "Windows GUI") {
+          $bytes = [System.IO.File]::ReadAllBytes($binary)
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+          $subsystem = [BitConverter]::ToUInt16($bytes, $peOffset + 24 + 68)
+          if ($subsystem -ne 2) {
             throw "$binary is not linked as a standalone Windows GUI application"
           }
 
@@ -65,7 +78,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          package="ittsy-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          package="ittsy-${RELEASE_TAG}-${{ matrix.target }}"
           scripts/package-macos.sh target/${{ matrix.target }}/release/ittsy dist
           ditto -c -k --sequesterRsrc --keepParent dist/ittsy.app "${package}.zip"
           shasum -a 256 "${package}.zip" > "${package}.zip.sha256"
@@ -75,7 +88,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          package="ittsy-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          package="ittsy-${RELEASE_TAG}-${{ matrix.target }}"
           scripts/package-linux.sh target/${{ matrix.target }}/release/ittsy dist
           tar -C dist -czf "${package}.tar.gz" ittsy
           sha256sum "${package}.tar.gz" > "${package}.tar.gz.sha256"
@@ -84,7 +97,7 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          $package = "ittsy-$env:GITHUB_REF_NAME-${{ matrix.target }}"
+          $package = "ittsy-$env:RELEASE_TAG-${{ matrix.target }}"
           Compress-Archive -Path target/${{ matrix.target }}/release/ittsy.exe -DestinationPath "$package.zip"
           $hash = (Get-FileHash "$package.zip" -Algorithm SHA256).Hash.ToLower()
           "$hash  $package.zip" | Set-Content -Encoding ascii "$package.zip.sha256"
@@ -112,9 +125,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          gh release create "${RELEASE_TAG}" \
             artifacts/* \
             --repo "${GITHUB_REPOSITORY}" \
-            --title "ittsy ${GITHUB_REF_NAME}" \
+            --title "ittsy ${RELEASE_TAG}" \
             --generate-notes \
             --verify-tag
