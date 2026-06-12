@@ -100,7 +100,11 @@ jobs:
           $package = "ittsy-$env:RELEASE_TAG-${{ matrix.target }}"
           Compress-Archive -Path target/${{ matrix.target }}/release/ittsy.exe -DestinationPath "$package.zip"
           $hash = (Get-FileHash "$package.zip" -Algorithm SHA256).Hash.ToLower()
-          "$hash  $package.zip" | Set-Content -Encoding ascii "$package.zip.sha256"
+          [System.IO.File]::WriteAllText(
+            "$package.zip.sha256",
+            "$hash  $package.zip`n",
+            [System.Text.Encoding]::ASCII
+          )
 
       - uses: actions/upload-artifact@v4
         with:
