@@ -106,7 +106,7 @@ jobs:
             [System.Text.Encoding]::ASCII
           )
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ittsy-${{ matrix.target }}
           path: |
@@ -120,7 +120,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: ittsy-*
           path: artifacts
